@@ -35,6 +35,32 @@ df.sum.cli <- df.long %>%
          upperci = p_adj + marg, #upper wald ci
          upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
 
+#ui
+df.sum.ui <- df.long %>%
+  mutate(total=total.responses) %>%
+  group_by(ui_topt,total) %>%
+  summarize(count=n(),
+            rank_avg=mean(as.numeric(ui_rank),na.rm = T),
+            difficulty_avg=mean(ui_diff.n,na.rm = T),
+            expertise_avg = mean(expertise.num,na.rm = T)          
+  ) %>%
+  mutate(prop = count / total, #get cis
+         n=total, #rename
+         prop = count / n, #exact proportion from succesess/trials
+         laplace = (count + 1) / (n + 2), #laplace point estimate
+         p_adj = (n * prop + (zval * zval) / 2) / (n + (zval * zval)), #adjust p for wald calculation
+         n_adj = n + (zval * zval), #adjust n for wald calculation
+         marg =  zval * sqrt(p_adj * (1 - p_adj) / n_adj), #wald margin value
+         lowerci = p_adj - marg, #lower wald ci
+         lowerci = ifelse(lowerci <= 0, 0, lowerci), #keep lower ci above 0
+         upperci = p_adj + marg, #upper wald ci
+         upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
+
+#join
+df.sum 
+full_join(df.sum.cli,df.sum.ui,suffix=c("cli","ui"),by=c("cli_topt","ui_topt"))
+
+
 
 
 df.sum.cli %>% 
@@ -49,8 +75,26 @@ df.sum.cli %>%
   #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
   ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="RHEL Top 20 Tasks",
-    subtitle = "Confidence internals at 80%, Adjusted Wald method",
+    title="OpenShift CLI Top Tasks",
+    subtitle = "Confidence internals at 90%, Adjusted Wald method",
+    x="Tasks",
+    y="Percentage"
+  )
+
+df.sum.ui %>% 
+  #filter(prop>.07) %>%
+  ggplot(aes(y=prop,x=reorder(ui_topt,prop))) +
+  geom_bar(stat = "identity") +
+  geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
+  scale_y_continuous(labels = scales::percent) +#Make scale 0-1 and %
+  scale_fill_manual(values=c("#4CB140","#0066CC")) +
+  coord_flip() +
+  #theme
+  #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
+  ggthemes::theme_tufte(base_family="sans") +
+  labs(
+    title="OpenShift UI Top Tasks",
+    subtitle = "Confidence internals at 90%, Adjusted Wald method",
     x="Tasks",
     y="Percentage"
   )
