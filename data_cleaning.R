@@ -1,13 +1,13 @@
 library(tidyverse)
 
-data <- read_csv("/Users/carlpearson/Documents/r_github/openshift_top_tasks/do_not_upload/three_weeks.csv",col_names = T)
+data <- read_csv("/Users/carlpearson/Documents/r_github/openshift_top_tasks/do_not_upload/three_weeks2.csv",col_names = T)
 
 df <- data[3:nrow(data),]
 
 #get wide df for level 1 vars
 df.wide <-  df %>% 
   filter(Status != "Survey Preview",#remove previews
-         RH=="Yes, I'm a Red Hat employee") %>%  #remove internals
+         RH !="Yes, I'm a Red Hat employee") %>%  #remove internals
   select(ResponseId, #id variable
          rh=RH, #internal/external variablke
          experience=Experience, #xperience level
@@ -31,20 +31,27 @@ df.wide <-  df %>%
          lat=LocationLatitude,
          long=LocationLongitude,
          version,
-         research
-  ) %>%
+         research,
+         Status,
+         channel_source='src',
+         dist=DistributionChannel) %>%
   select(-contains("DO_")) %>% #remove randomization data
   unite(col="role",contains("role"),na.rm=T,sep=",") %>% #combine role cols
-  mutate(role=gsub(",,","",role)) %>%
+  mutate(role=gsub(",,","",role)) %>% #remove excess characters in role
+  mutate( channel_source = ifelse(is.na(channel_source),dist,channel_source),
+          channel_source = case_when(
+              channel_source == "bl" ~ "Blog",
+              channel_source == "er" ~ "Email referral",
+              channel_source == "email" ~ "Email"
+          )) %>% #get channel data united 
   pivot_longer(contains("i_",),names_to = "variable",values_to = "response" ) %>% #elongate top task measurement variables
-  na.omit() %>% #remove na, unpicked choices
+ # na.omit() %>% #remove na, unpicked choices
   separate(variable,into=c("interface","measure","number"),sep="_") %>% #split out variable col into three pieces of info
   unite("variable",c("interface","measure"),sep="_") %>%
   select(-number) %>% #remove number variable, unneeded
   pivot_wider(names_from = "variable",values_from = "response") %>% #widen data across ui/cli measure
   separate(experience, into = c('experience','drop_me'),sep=" – ") %>% select(-drop_me) %>%
-  mutate(
-    experience = factor(experience, levels = c("None","Basic","Intermediate","Advanced","Expert")),
+  mutate( experience = factor(experience, levels = c("None","Basic","Intermediate","Advanced","Expert")),
     use_oc = factor(use_oc,levels=c("I'm not sure","Never","Less than once","1-2 times", "3-5 times", "6-10 times","11+ times")),
     use_odo = factor(use_odo,levels=c("I'm not sure","Never","Less than once","1-2 times", "3-5 times", "6-10 times","11+ times")),
     use_ui = factor(use_ui,levels=c("I'm not sure","Never","Less than once","1-2 times", "3-5 times", "6-10 times","11+ times")),
@@ -68,9 +75,7 @@ df.wide <-  df %>%
       umux.eas == "Neither agree nor disagree" ~ 3,
       umux.eas == "Somewhat disagree" ~ 2,
       umux.eas == "Strongly disagree" ~ 1
-    )
-    
-  )
+    ))
 
 
 #get long df for level 2 vars

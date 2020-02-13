@@ -1,5 +1,20 @@
 #level 1 plots: descriptives
 
+#source
+df.wide %>%
+  ggplot(aes(channel_source,fill=channel_source)) +
+  geom_bar() +
+  geom_text(stat = 'count',aes(label =..count.., vjust = -0.4),size=7) + 
+  ggthemes::theme_tufte(base_family="sans", base_size = 15) +
+  scale_fill_brewer(palette = "YlOrRd") +
+  theme(
+    axis.text.x= element_text(size=12),
+    axis.text.y=element_blank(),
+    axis.title.x =element_blank(),
+    axis.ticks.y=element_blank(),
+    legend.position = "none") +
+  labs(y="Count")
+
 #Experience
 df.wide %>%
   ggplot(aes(experience,fill=experience)) +
@@ -152,8 +167,7 @@ p2 <- df.sum.cli %>%
   ggplot(aes(y=difficulty_avg,x=reorder(cli_topt,prop))) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
-
-  coord_flip() +
+  coord_flip(ylim=c(1,5)) +
   theme_minimal() +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -161,14 +175,17 @@ p2 <- df.sum.cli %>%
         legend.position = "none") +
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="RHEL Top 20 Tasks - Average Difficulty",
-    subtitle = "Confidence internals at 90%, standard method",
+    title="OpenShift CLI Top Tasks & Average Difficulty",
+    subtitle = "Confidence internals at 90%",
     x="Tasks",
     y="Dfficulty rating"
   )
 
 
-gridExtra::grid.arrange(p1, p2, nrow = 1) 
+gridExtra::grid.arrange(p1, p2, 
+                        widths = c(2,1),
+                        nrow = 1) 
+
 
 
 #save
@@ -190,8 +207,8 @@ p1 <- df.sum.ui %>%
   #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="RHEL Top 20 Tasks - Proprotion Chosen",
-    subtitle = "Confidence internals at 90%, Adjusted Wald method",
+    title="OpenShift CLI Top Tasks & Average Difficulty",
+    subtitle = "Confidence internals at 90%",
     x="Tasks",
     y="Percentage"
   )
@@ -201,8 +218,7 @@ p2 <- df.sum.ui %>%
   ggplot(aes(y=difficulty_avg,x=reorder(ui_topt,prop))) +
   geom_bar(stat = "identity") +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
-  
-  coord_flip() +
+  coord_flip(ylim=c(1,5)) +
   theme_minimal() +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
@@ -217,7 +233,9 @@ p2 <- df.sum.ui %>%
   )
 
 
-gridExtra::grid.arrange(p1, p2, nrow = 1) 
+gridExtra::grid.arrange(p1, p2, 
+                        widths = c(2,1),
+                        nrow = 1) 
 
 
 #save
