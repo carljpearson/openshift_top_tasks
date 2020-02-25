@@ -1,3 +1,5 @@
+library(RColorBrewer)
+
 #level 1 plots: descriptives
 
 #source
@@ -36,7 +38,7 @@ ggsave("/Users/carlpearson/Documents/r_github/openshift_top_tasks/plots/experien
 #Create Top Task plots
 
 #static values
-total.responses <- length(unique(df$ResponseId))
+total.responses <- length(unique(df.wide$ResponseId))
 zval=1.64
 
 #proportions dataframe
@@ -97,8 +99,7 @@ df.sum.ui <- df.long %>%
          upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
 
 #join
-df.sum 
-full_join(df.sum.cli,df.sum.ui,suffix=c("cli","ui"),by=c("cli_topt","ui_topt"))
+df.sum <- full_join(df.sum.cli,df.sum.ui,suffix=c(".cli",".ui"),by=c("cli_topt" = "ui_topt"))
 
 
 
@@ -142,47 +143,50 @@ df.sum.ui %>%
 #difficulty side by side
 
 #cli
-p1 <- df.sum.cli %>% 
-  filter(prop>.02) %>%
+p1.cli <- df.sum.cli %>% 
+  ungroup() %>%
+  arrange(desc(prop)) %>% slice(1:20) %>%
   ggplot(aes(y=prop,x=reorder(cli_topt,prop))) +
   geom_bar(stat = "identity") +
+  geom_text(aes(label=count,y=0),color="white",hjust=1.4) +
   # geom_point(aes(y=difficulty_avg)) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
-  geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
   scale_y_reverse(labels = scales::percent) +
-  theme_minimal() +
+  ggthemes::theme_tufte(base_family = "sans") +
   coord_flip() +
   #theme
   #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="RHEL Top 20 Tasks - Proprotion Chosen",
-    subtitle = "Confidence internals at 90%, Adjusted Wald method",
+    title="OpenShift CLI Top Tasks & Average Difficulty",
+    subtitle = "Confidence internals at 90%, Numbers are raw counts",
     x="Tasks",
     y="Percentage"
   )
 
-p2 <- df.sum.cli %>% 
-  filter(prop>.02) %>%
-  ggplot(aes(y=difficulty_avg,x=reorder(cli_topt,prop))) +
+p2.cli <- df.sum.cli %>% 
+  ungroup() %>%
+  arrange(desc(prop)) %>% slice(1:20) %>%
+  ggplot(aes(y=difficulty_avg,x=reorder(cli_topt,prop),fill=difficulty_avg)) +
   geom_bar(stat = "identity") +
+  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4) +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
   coord_flip(ylim=c(1,5)) +
-  theme_minimal() +
+  ggthemes::theme_tufte(base_family = "sans") +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
         legend.position = "none") +
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="OpenShift CLI Top Tasks & Average Difficulty",
-    subtitle = "Confidence internals at 90%",
+    title="",
+    subtitle = "Redder (smaller number) is more difficult",
     x="Tasks",
     y="Dfficulty rating"
   )
 
 
-gridExtra::grid.arrange(p1, p2, 
+gridExtra::grid.arrange(p1.cli, p2.cli, 
                         widths = c(2,1),
                         nrow = 1) 
 
@@ -193,33 +197,37 @@ gridExtra::grid.arrange(p1, p2,
 
 
 #ui
-p1 <- df.sum.ui %>% 
-  filter(prop>.02) %>%
+p1.ui <- df.sum.ui %>% 
+  ungroup() %>%
+  arrange(desc(prop)) %>% slice(1:20) %>%
   ggplot(aes(y=prop,x=reorder(ui_topt,prop))) +
   geom_bar(stat = "identity") +
   # geom_point(aes(y=difficulty_avg)) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
+  geom_text(aes(label=count,y=0),color="white",hjust=1.4) +
   scale_y_reverse(labels = scales::percent) +
-  theme_minimal() +
+  ggthemes::theme_tufte(base_family = "sans") +
   coord_flip() +
   #theme
   #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
-    title="OpenShift CLI Top Tasks & Average Difficulty",
-    subtitle = "Confidence internals at 90%",
+    title="OpenShift UI Top Tasks & Average Difficulty",
+    subtitle = "Confidence internals at 90%, Numbers are raw counts",
     x="Tasks",
     y="Percentage"
   )
 
-p2 <- df.sum.ui %>% 
-  filter(prop>.02) %>%
-  ggplot(aes(y=difficulty_avg,x=reorder(ui_topt,prop))) +
+p2.ui <- df.sum.ui %>% 
+  ungroup() %>%
+  arrange(desc(prop)) %>% slice(1:20) %>%
+  ggplot(aes(y=difficulty_avg,x=reorder(ui_topt,prop),fill=difficulty_avg)) +
   geom_bar(stat = "identity") +
+  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4) +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
   coord_flip(ylim=c(1,5)) +
-  theme_minimal() +
+  ggthemes::theme_tufte(base_family = "sans") +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
@@ -227,16 +235,39 @@ p2 <- df.sum.ui %>%
   # ggthemes::theme_tufte(base_family="sans") +
   labs(
     title="",
-    subtitle = "",
+    subtitle = "Redder (smaller number) is more difficult",
     x="Tasks",
     y="Dfficulty rating"
   )
 
 
-gridExtra::grid.arrange(p1, p2, 
-                        widths = c(2,1),
+gridExtra::grid.arrange(p1.ui, p2.ui, 
+                        widths = c(10,6),
                         nrow = 1) 
 
 
 #save
 #ggsave("/Users/carlpearson/Documents/r_github/top_tasks_rhel/difficulty.png",device="png",  width=8,height=6,bg="white")
+
+
+#difficulty comparison
+df.sum %>%
+  filter(count.cli > 10,
+         count.ui > 10) %>%
+  select(cli_topt, 
+         contains("difficulty") 
+         ) %>%
+  pivot_longer(-cli_topt) %>%
+  separate(name,into = c("name","Interface"),sep = "\\.") %>%
+  pivot_wider() %>%
+  rename(Tasks = cli_topt) %>%
+  arrange(desc(difficulty_avg)) %>%
+  ggplot(aes(x=Tasks,y=difficulty_avg,fill=Interface,color=Interface)) +
+  geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),position = position_dodge(width = .5)) +
+  geom_point(position=position_dodge(width = .5)) +
+  ggthemes::theme_tufte(base_family = "sans") +
+  coord_flip()
+  
+
+
+

@@ -1,13 +1,13 @@
 library(tidyverse)
 
-data <- read_csv("/Users/carlpearson/Documents/r_github/openshift_top_tasks/do_not_upload/three_weeks2.csv",col_names = T)
+data <- read_csv("/Users/carlpearson/Documents/r_github/openshift_top_tasks/do_not_upload/five_weeks.csv",col_names = T)
 
 df <- data[3:nrow(data),]
 
 #get wide df for level 1 vars
 df.wide <-  df %>% 
   filter(Status != "Survey Preview",#remove previews
-         RH !="Yes, I'm a Red Hat employee") %>%  #remove internals
+         RH =="No, I'm not a Red Hat employee.") %>%  #remove internals
   select(ResponseId, #id variable
          rh=RH, #internal/external variablke
          experience=Experience, #xperience level
@@ -41,11 +41,13 @@ df.wide <-  df %>%
   mutate( channel_source = ifelse(is.na(channel_source),dist,channel_source),
           channel_source = case_when(
               channel_source == "bl" ~ "Blog",
-              channel_source == "er" ~ "Email referral",
+              channel_source == "er" ~ "Email referral via CEE",
+              channel_source == "ef" ~ "Email referral via BI users",
+              channel_source == "bf" ~ "Email eferral via BI buyers",
               channel_source == "email" ~ "Email"
           )) %>% #get channel data united 
   pivot_longer(contains("i_",),names_to = "variable",values_to = "response" ) %>% #elongate top task measurement variables
- # na.omit() %>% #remove na, unpicked choices
+  na.omit() %>% #remove na, unpicked choices
   separate(variable,into=c("interface","measure","number"),sep="_") %>% #split out variable col into three pieces of info
   unite("variable",c("interface","measure"),sep="_") %>%
   select(-number) %>% #remove number variable, unneeded
