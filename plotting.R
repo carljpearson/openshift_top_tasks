@@ -32,7 +32,26 @@ df.wide %>%
     legend.position = "none") +
   labs(y="Count")
 
-ggsave("/Users/carlpearson/Documents/r_github/openshift_top_tasks/plots/experience.png",bg="transparent",width = 8,height = 6)
+#ggsave("/Users/carlpearson/Documents/r_github/openshift_top_tasks/plots/experience.png",bg="transparent",width = 8,height = 6)
+
+df.wide %>%
+  select(ResponseId,use_oc,use_odo,use_ui) %>%
+  pivot_longer(-ResponseId,names_to = "Interface",values_to = "Weekly_Use") %>%
+  mutate(Interface=gsub("use_","",Interface),
+         Interface = factor(Interface, levels="oc","ui","odo"))
+  ggplot(aes(Interface,fill=Weekly_Use)) +
+  geom_bar(position = "dodge") +
+  geom_text(stat = 'count',aes(label =..count.., vjust = -0.4),size=5,position = position_dodge(width = .9)) + 
+  ggthemes::theme_tufte(base_family="sans", base_size = 15) +
+  scale_fill_brewer(palette = "YlOrRd") +
+  theme(
+    axis.text.x= element_text(size=12),
+    axis.text.y=element_blank(),
+    axis.title.x =element_blank(),
+    axis.ticks.y=element_blank()) +
+  labs(y="Count")
+
+
 
 
 #Create Top Task plots
