@@ -34,11 +34,11 @@ df.wide %>%
 
 #ggsave("/Users/carlpearson/Documents/r_github/openshift_top_tasks/plots/experience.png",bg="transparent",width = 8,height = 6)
 
+#ui vs cli bar
 df.wide %>%
   select(ResponseId,use_oc,use_odo,use_ui) %>%
   pivot_longer(-ResponseId,names_to = "Interface",values_to = "Weekly_Use") %>%
-  mutate(Interface=gsub("use_","",Interface),
-         Interface = factor(Interface, levels="oc","ui","odo"))
+  mutate(Interface=gsub("use_","",Interface)) %>%
   ggplot(aes(Interface,fill=Weekly_Use)) +
   geom_bar(position = "dodge") +
   geom_text(stat = 'count',aes(label =..count.., vjust = -0.4),size=5,position = position_dodge(width = .9)) + 
@@ -51,13 +51,35 @@ df.wide %>%
     axis.ticks.y=element_blank()) +
   labs(y="Count")
 
+#ui vs oc heat
 
+df.wide %>%
+  drop_na(use_oc,use_ui) %>%
+  group_by(use_oc,use_ui) %>%
+  count() %>%
+  rename(count=n) %>%
+  mutate(oc_fac=as.numeric(use_oc),
+         ui_fac=as.numeric(use_ui)) %>%
+  filter(ui_fac != 1,
+         oc_fac != 1) %>%
+  mutate(gradient.group = case_when(
+    ui_fac == oc_fac ~ "Even",
+    ui_fac > oc_fac ~ "Less oc use",
+    ui_fac < oc_fac ~ "More oc use"
+  )) %>%
+  ggplot(aes(y=use_oc,x=use_ui,fill=count,color=gradient.group)) +
+  geom_tile(stat="identity",size=2) +
+  geom_text(aes(label=count),color="white") +
+  scale_color_manual(values=c("gray","green","orange")) +
+  ggthemes::theme_tufte(base_family = "sans") +
+  labs(y="Weekly oc use",x="Weekly UI use",
+       title = "Weekly use of oc vs. UI")
 
 
 #Create Top Task plots
 
 #static values
-total.responses <- length(unique(df.wide$ResponseId))
+total.responses <- nrow(df.wide)
 zval=1.64
 
 #proportions dataframe
@@ -75,6 +97,7 @@ df.sum.cli <- df.long %>%
   group_by(cli_topt,total) %>%
   summarize(count=n(),
             rank_avg=mean(as.numeric(cli_rank),na.rm = T),
+            rank_sum=sum(as.numeric(cli_rank),na.rm = T),
             difficulty_avg=mean(cli_diff.n,na.rm = T),
             difficulty_sd = sd(cli_diff.n, na.rm=T ),
             difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
@@ -100,6 +123,9 @@ df.sum.ui <- df.long %>%
   group_by(ui_topt,total) %>%
   summarize(count=n(),
             rank_avg=mean(as.numeric(ui_rank),na.rm = T),
+            rank_sd = sd(ui_rank, na.rm=T ),
+            rank_marg = ((rank_sd/sqrt(count))*zval),
+            rank_sum=sum(as.numeric(ui_rank)),
             difficulty_avg=mean(ui_diff.n,na.rm = T),
             difficulty_sd = sd(ui_diff.n, na.rm=T ),
             difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
@@ -159,7 +185,7 @@ df.sum.ui %>%
     y="Percentage"
   )
 
-#difficulty side by side
+#difficulty side by side with top tasks
 
 #cli
 p1.cli <- df.sum.cli %>% 
@@ -286,7 +312,19 @@ df.sum %>%
   geom_point(position=position_dodge(width = .5)) +
   ggthemes::theme_tufte(base_family = "sans") +
   coord_flip()
-  
 
+
+#rank sum
+
+df.sum.cli %>%
+  ungroup() %>%
+  arrange(desc(rank_sum)) %>% 
+  slice(1:20) %>%
+  ggplot(aes(x=cli_topt,y=rank_sum))+
+  geom_bar(stat="identity")+
+  geom_point(aes(y=prop*700)) +
+  ggthemes::theme_tufte(base_family = "sans") +
+  coord_flip()
+  
 
 
