@@ -6,16 +6,16 @@ library(RColorBrewer)
 df.wide %>%
   ggplot(aes(channel_source,fill=channel_source)) +
   geom_bar() +
-  geom_text(stat = 'count',aes(label =..count.., vjust = -0.4),size=7) + 
+  geom_text(stat = 'count',aes(label =..count.., hjust = -0.1),size=7) + 
   ggthemes::theme_tufte(base_family="sans", base_size = 15) +
   scale_fill_brewer(palette = "YlOrRd") +
   theme(
-    axis.text.x= element_text(size=12),
-    axis.text.y=element_blank(),
+    axis.text.x=element_blank(),
     axis.title.x =element_blank(),
     axis.ticks.y=element_blank(),
     legend.position = "none") +
-  labs(y="Count")
+  labs(y="Count") +
+  coord_flip()
 
 #Experience
 df.wide %>%
@@ -62,92 +62,27 @@ df.wide %>%
          ui_fac=as.numeric(use_ui)) %>%
   filter(ui_fac != 1,
          oc_fac != 1) %>%
-  mutate(gradient.group = case_when(
+  mutate(Ratio = case_when(
     ui_fac == oc_fac ~ "Even",
-    ui_fac > oc_fac ~ "Less oc use",
+    ui_fac > oc_fac ~ "More UI use",
     ui_fac < oc_fac ~ "More oc use"
   )) %>%
-  ggplot(aes(y=use_oc,x=use_ui,fill=count,color=gradient.group)) +
-  geom_tile(stat="identity",size=2) +
+  ggplot(aes(y=use_oc,x=use_ui,fill=count,color=Ratio)) +
+ # geom_tile(stat="identity",width=.97,height=.95,size=1.5) +
+  geom_point(aes(size=count)) +
   geom_text(aes(label=count),color="white") +
-  scale_color_manual(values=c("gray","green","orange")) +
+  scale_color_manual(values=c("lightblue","lightgreen","orange")) +
+  scale_size_continuous(range = c(5, 55)) +
   ggthemes::theme_tufte(base_family = "sans") +
   labs(y="Weekly oc use",x="Weekly UI use",
-       title = "Weekly use of oc vs. UI")
-
-
-#Create Top Task plots
-
-#static values
-total.responses <- nrow(df.wide)
-zval=1.64
-
-#proportions dataframe
-#cli
-df.sum.cli <- df.long %>%
-  mutate(total=total.responses,
-         expertise.num = case_when(
-           experience == "Expert" ~ 4,
-           experience == "Advanced" ~ 3,
-           experience == "Intermediate" ~ 2,
-           experience == "Beginner" ~ 1,
-           experience == "None" ~ 0
-         )
-  ) %>%
-  group_by(cli_topt,total) %>%
-  summarize(count=n(),
-            rank_avg=mean(as.numeric(cli_rank),na.rm = T),
-            rank_sum=sum(as.numeric(cli_rank),na.rm = T),
-            difficulty_avg=mean(cli_diff.n,na.rm = T),
-            difficulty_sd = sd(cli_diff.n, na.rm=T ),
-            difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
-            expertise_avg = mean(expertise.num,na.rm = T)          
-  ) %>%
-  mutate(prop = count / total, #get cis
-         n=total, #rename
-         prop = count / n, #exact proportion from succesess/trials
-         laplace = (count + 1) / (n + 2), #laplace point estimate
-         p_adj = (n * prop + (zval * zval) / 2) / (n + (zval * zval)), #adjust p for wald calculation
-         n_adj = n + (zval * zval), #adjust n for wald calculation
-         marg =  zval * sqrt(p_adj * (1 - p_adj) / n_adj), #wald margin value
-         lowerci = p_adj - marg, #lower wald ci
-         lowerci = ifelse(lowerci <= 0, 0, lowerci), #keep lower ci above 0
-         upperci = p_adj + marg, #upper wald ci
-         upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
-
-#ui
-
-#get summarized dataset
-df.sum.ui <- df.long %>%
-  mutate(total=total.responses) %>%
-  group_by(ui_topt,total) %>%
-  summarize(count=n(),
-            rank_avg=mean(as.numeric(ui_rank),na.rm = T),
-            rank_sd = sd(ui_rank, na.rm=T ),
-            rank_marg = ((rank_sd/sqrt(count))*zval),
-            rank_sum=sum(as.numeric(ui_rank)),
-            difficulty_avg=mean(ui_diff.n,na.rm = T),
-            difficulty_sd = sd(ui_diff.n, na.rm=T ),
-            difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
-            expertise_avg = mean(expertise.num,na.rm = T)          
-  ) %>%
-  mutate(prop = count / total, #get cis
-         n=total, #rename
-         prop = count / n, #exact proportion from succesess/trials
-         laplace = (count + 1) / (n + 2), #laplace point estimate
-         p_adj = (n * prop + (zval * zval) / 2) / (n + (zval * zval)), #adjust p for wald calculation
-         n_adj = n + (zval * zval), #adjust n for wald calculation
-         marg =  zval * sqrt(p_adj * (1 - p_adj) / n_adj), #wald margin value
-         lowerci = p_adj - marg, #lower wald ci
-         lowerci = ifelse(lowerci <= 0, 0, lowerci), #keep lower ci above 0
-         upperci = p_adj + marg, #upper wald ci
-         upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
-
-#join
-df.sum <- full_join(df.sum.cli,df.sum.ui,suffix=c(".cli",".ui"),by=c("cli_topt" = "ui_topt"))
+       title = "Weekly use of oc vs. UI") +
+guides(fill = FALSE,size=F) 
 
 
 
+
+
+#plot tasks
 
 df.sum.cli %>% 
   #filter(prop>.07) %>%
@@ -189,19 +124,17 @@ df.sum.ui %>%
 
 #cli
 p1.cli <- df.sum.cli %>% 
+  left_join(task_group_key,by=c("cli_topt" = "Task")) %>%
   ungroup() %>%
   arrange(desc(prop)) %>% slice(1:20) %>%
-  ggplot(aes(y=prop,x=reorder(cli_topt,prop))) +
+  ggplot(aes(y=prop,x=reorder(cli_topt,prop),fill=Group)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label=count,y=0),color="white",hjust=1.4) +
-  # geom_point(aes(y=difficulty_avg)) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
   scale_y_reverse(labels = scales::percent) +
   ggthemes::theme_tufte(base_family = "sans") +
   coord_flip() +
-  #theme
-  #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
-  # ggthemes::theme_tufte(base_family="sans") +
+  theme(legend.position = "left") +
   labs(
     title="OpenShift CLI Top Tasks & Average Difficulty",
     subtitle = "Confidence internals at 90%, Numbers are raw counts",
@@ -214,15 +147,14 @@ p2.cli <- df.sum.cli %>%
   arrange(desc(prop)) %>% slice(1:20) %>%
   ggplot(aes(y=difficulty_avg,x=reorder(cli_topt,prop),fill=difficulty_avg)) +
   geom_bar(stat = "identity") +
-  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4) +
+  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4,name = "Difficulty") +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
   coord_flip(ylim=c(1,5)) +
   ggthemes::theme_tufte(base_family = "sans") +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        legend.position = "none") +
-  # ggthemes::theme_tufte(base_family="sans") +
+        legend.position = "right") +
   labs(
     title="",
     subtitle = "Redder (smaller number) is more difficult",
@@ -243,20 +175,18 @@ gridExtra::grid.arrange(p1.cli, p2.cli,
 
 #ui
 p1.ui <- df.sum.ui %>% 
+  left_join(task_group_key,by=c("ui_topt" = "Task")) %>%
   ungroup() %>%
   arrange(desc(prop)) %>% slice(1:20) %>%
-  ggplot(aes(y=prop,x=reorder(ui_topt,prop))) +
+  ggplot(aes(y=prop,x=reorder(ui_topt,prop),fill=Group)) +
   geom_bar(stat = "identity") +
-  # geom_point(aes(y=difficulty_avg)) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
   geom_errorbar(aes(ymin=lowerci,ymax=upperci),color="gray",width=.5) +
   geom_text(aes(label=count,y=0),color="white",hjust=1.4) +
   scale_y_reverse(labels = scales::percent) +
   ggthemes::theme_tufte(base_family = "sans") +
   coord_flip() +
-  #theme
-  #theme(axis.text.x = element_text(angle = -45,hjust=.7,vjust=1))
-  # ggthemes::theme_tufte(base_family="sans") +
+  theme(legend.position = "left") +
   labs(
     title="OpenShift UI Top Tasks & Average Difficulty",
     subtitle = "Confidence internals at 90%, Numbers are raw counts",
@@ -269,15 +199,14 @@ p2.ui <- df.sum.ui %>%
   arrange(desc(prop)) %>% slice(1:20) %>%
   ggplot(aes(y=difficulty_avg,x=reorder(ui_topt,prop),fill=difficulty_avg)) +
   geom_bar(stat = "identity") +
-  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4) +
+  scale_fill_gradient2(low="#580000",mid="darkgray",high="blue",midpoint=4,name = "Difficulty") +
   geom_errorbar(aes(ymin=difficulty_avg-difficulty_marg,ymax=difficulty_avg+difficulty_marg),color="gray",width=.5) +
   coord_flip(ylim=c(1,5)) +
   ggthemes::theme_tufte(base_family = "sans") +
   theme(axis.title.y=element_blank(),
         axis.text.y=element_blank(),
         axis.ticks.y=element_blank(),
-        legend.position = "none") +
-  # ggthemes::theme_tufte(base_family="sans") +
+        legend.position = "right") +
   labs(
     title="",
     subtitle = "Redder (smaller number) is more difficult",

@@ -51,7 +51,7 @@ df.wide <-  df %>%
               channel_source == "dv" ~ "Developer outreach",
               channel_source == "er" ~ "Email referral via CEE",
               channel_source == "ef" ~ "Email referral via BI users",
-              channel_source == "bf" ~ "Email eferral via BI buyers",
+              channel_source == "bf" ~ "Email referral via BI buyers",
               channel_source == "mj" ~ "Mojo link",
               channel_source == "ml" ~ "memo-list link",
               channel_source == "rd" ~ "Referral",
@@ -124,4 +124,73 @@ df.cli.rank <- df.long %>%
 
 nrow(df.wide)
 
+#get summarized data
+
+#static values
+total.responses <- nrow(df.wide)
+zval=1.64
+
+#proportions dataframe
+#cli
+df.sum.cli <- df.long %>%
+  mutate(total=total.responses,
+         expertise.num = case_when(
+           experience == "Expert" ~ 4,
+           experience == "Advanced" ~ 3,
+           experience == "Intermediate" ~ 2,
+           experience == "Beginner" ~ 1,
+           experience == "None" ~ 0
+         )
+  ) %>%
+  group_by(cli_topt,total) %>%
+  summarize(count=n(),
+            rank_avg=mean(as.numeric(cli_rank),na.rm = T),
+            rank_sum=sum(as.numeric(cli_rank),na.rm = T),
+            difficulty_avg=mean(cli_diff.n,na.rm = T),
+            difficulty_sd = sd(cli_diff.n, na.rm=T ),
+            difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
+            expertise_avg = mean(expertise.num,na.rm = T)          
+  ) %>%
+  mutate(prop = count / total, #get cis
+         n=total, #rename
+         prop = count / n, #exact proportion from succesess/trials
+         laplace = (count + 1) / (n + 2), #laplace point estimate
+         p_adj = (n * prop + (zval * zval) / 2) / (n + (zval * zval)), #adjust p for wald calculation
+         n_adj = n + (zval * zval), #adjust n for wald calculation
+         marg =  zval * sqrt(p_adj * (1 - p_adj) / n_adj), #wald margin value
+         lowerci = p_adj - marg, #lower wald ci
+         lowerci = ifelse(lowerci <= 0, 0, lowerci), #keep lower ci above 0
+         upperci = p_adj + marg, #upper wald ci
+         upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
+
+#ui
+
+#get summarized dataset
+df.sum.ui <- df.long %>%
+  mutate(total=total.responses) %>%
+  group_by(ui_topt,total) %>%
+  summarize(count=n(),
+            rank_avg=mean(as.numeric(ui_rank),na.rm = T),
+            rank_sd = sd(ui_rank, na.rm=T ),
+            rank_marg = ((rank_sd/sqrt(count))*zval),
+            rank_sum=sum(as.numeric(ui_rank)),
+            difficulty_avg=mean(ui_diff.n,na.rm = T),
+            difficulty_sd = sd(ui_diff.n, na.rm=T ),
+            difficulty_marg = ((difficulty_sd/sqrt(count))*zval),
+            expertise_avg = mean(expertise.num,na.rm = T)          
+  ) %>%
+  mutate(prop = count / total, #get cis
+         n=total, #rename
+         prop = count / n, #exact proportion from succesess/trials
+         laplace = (count + 1) / (n + 2), #laplace point estimate
+         p_adj = (n * prop + (zval * zval) / 2) / (n + (zval * zval)), #adjust p for wald calculation
+         n_adj = n + (zval * zval), #adjust n for wald calculation
+         marg =  zval * sqrt(p_adj * (1 - p_adj) / n_adj), #wald margin value
+         lowerci = p_adj - marg, #lower wald ci
+         lowerci = ifelse(lowerci <= 0, 0, lowerci), #keep lower ci above 0
+         upperci = p_adj + marg, #upper wald ci
+         upperci = ifelse(upperci >= 1, 1, upperci)) #keep upper ci below 1
+
+#join
+df.sum <- full_join(df.sum.cli,df.sum.ui,suffix=c(".cli",".ui"),by=c("cli_topt" = "ui_topt"))
 
